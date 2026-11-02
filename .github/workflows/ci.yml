@@ -45,6 +45,8 @@ jobs:
         run: ./scripts/build-deps.sh
       - name: Build DEB with incremented package revision
         run: ./scripts/build-deb.sh
+      - name: Stage DEB artifact
+        run: mkdir -p artifacts && cp ../mouse-master_*.deb artifacts/
       - name: Inspect package
         run: |
           dpkg-deb --info ../mouse-master_*.deb
@@ -67,7 +69,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: mouse-master-${{ matrix.distro }}-${{ github.run_number }}
-          path: ../mouse-master_*.deb
+          path: artifacts/*.deb
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:

@@ -161,8 +161,10 @@ jobs:
           target_commitish: ${{ github.sha }}
           name: Mouse Master DEB ${{ steps.release.outputs.version }}
           body: |
-            Debian packages for Debian 13 and Ubuntu 26.04.
-            The release tag version is the application version plus the DEB package revision.
+            Packages:
+            - Debian 13 (amd64): `mouse-master_${{ steps.release.outputs.version }}_debian13_amd64.deb`
+            - Ubuntu 26.04 (amd64): `mouse-master_${{ steps.release.outputs.version }}_ubuntu26.04_amd64.deb`
+            Install the downloaded package with `sudo apt install ./<package-file>`.
           files: dist/*.deb
           fail_on_unmatched_files: true
           overwrite_files: true

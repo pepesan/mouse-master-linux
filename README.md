@@ -106,10 +106,28 @@ sudo apt install "../mouse-master_${package_version}_amd64.deb"
 
 Each build increments the DEB revision stored in `debian/revision`, while keeping the upstream
 application version unchanged. The generated revision is also recorded in `debian/changelog`.
-GitHub Actions builds and tests separate Debian 13 and Ubuntu 26.04 `.deb` packages. For owner
-pushes or manual runs on `main`, it stores each package version as a GitHub Release tagged
-`deb-<package-version>` and persists the new revision and changelog to the branch. The release
-assets use distro-specific filenames. Downloads are available under the repository's **Releases**.
+GitHub Actions builds and tests separate Debian 13 and Ubuntu 26.04 `.deb` packages. Pushes by the
+repository owner and manual runs by the owner on `main` publish a versioned GitHub Release
+(`deb-<package-version>`) with both distro-specific assets. The workflow also persists the new
+package revision and changelog to the branch.
+
+#### Install on Debian 13
+
+From [Releases](https://github.com/pepesan/mouse-master-linux/releases), download the asset ending
+in `_debian13_amd64.deb`. Replace `0.1.0-3` below with the package version shown in the release:
+
+```sh
+sudo apt install ./mouse-master_0.1.0-3_debian13_amd64.deb
+```
+
+#### Install on Ubuntu 26.04
+
+From [Releases](https://github.com/pepesan/mouse-master-linux/releases), download the asset ending
+in `_ubuntu26.04_amd64.deb`. Replace `0.1.0-3` below with the package version shown in the release:
+
+```sh
+sudo apt install ./mouse-master_0.1.0-3_ubuntu26.04_amd64.deb
+```
 
 Then enable the per-user service:
 

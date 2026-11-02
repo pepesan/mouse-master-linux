@@ -343,7 +343,7 @@ impl DeviceState {
             }
             (id::ADJUSTABLE_DPI, 3) => {
                 let dpi = u16::from_be_bytes([p(1), p(2)]);
-                if dpi < spec.dpi_min || dpi > spec.dpi_max || (dpi - spec.dpi_min) % spec.dpi_step != 0 {
+                if dpi < spec.dpi_min || dpi > spec.dpi_max || !(dpi - spec.dpi_min).is_multiple_of(spec.dpi_step) {
                     return Err(0x03);
                 }
                 self.dpi = dpi;

@@ -38,8 +38,8 @@ jobs:
           - distro: Ubuntu 26.04
             image: ubuntu:26.04
     steps:
-      - name: Install Git for checkout
-        run: apt-get update && apt-get install -y --no-install-recommends git
+      - name: Install checkout prerequisites
+        run: apt-get update && apt-get install -y --no-install-recommends ca-certificates git
       - uses: actions/checkout@v7
       - name: Install build dependencies
         run: ./scripts/build-deps.sh

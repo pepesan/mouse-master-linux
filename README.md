@@ -106,10 +106,10 @@ sudo apt install "../mouse-master_${package_version}_amd64.deb"
 
 Each build increments the DEB revision stored in `debian/revision`, while keeping the upstream
 application version unchanged. The generated revision is also recorded in `debian/changelog`.
-GitHub Actions builds and uploads separate Debian 13 and Ubuntu 26.04 `.deb` artifacts. After
-successful pushes to `main` by the repository owner, Actions commits the new revision and changelog
-back to the branch. This requires repository Actions write permission and branch rules that allow
-the bot commit.
+GitHub Actions builds and tests separate Debian 13 and Ubuntu 26.04 `.deb` packages. For owner
+pushes or manual runs on `main`, it stores each package version as a GitHub Release tagged
+`deb-<package-version>` and persists the new revision and changelog to the branch. The release
+assets use distro-specific filenames. Downloads are available under the repository's **Releases**.
 
 Then enable the per-user service:
 

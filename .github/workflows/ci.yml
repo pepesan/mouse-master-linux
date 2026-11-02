@@ -24,6 +24,95 @@ jobs:
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - run: cargo test --workspace --locked
+  package-deb:
+    name: DEB package (${{ matrix.distro }})
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ matrix.image }}
+    strategy:
+      matrix:
+        include:
+          - distro: Debian 13
+            image: debian:13
+          - distro: Ubuntu 26.04
+            image: ubuntu:26.04
+    steps:
+      - name: Install Git for checkout
+        run: apt-get update && apt-get install -y --no-install-recommends git
+      - uses: actions/checkout@v7
+      - name: Install build dependencies
+        run: ./scripts/build-deps.sh
+      - name: Build DEB with incremented package revision
+        run: ./scripts/build-deb.sh
+      - name: Inspect package
+        run: |
+          dpkg-deb --info ../mouse-master_*.deb
+          dpkg-deb --contents ../mouse-master_*.deb
+      - name: Install package and smoke-test CLI
+        run: |
+          package="../mouse-master_$(dpkg-parsechangelog -S Version)_amd64.deb"
+          apt-get install -y "$package"
+          dpkg-query -W -f='${Status} ${Version}\n' mouse-master | grep -F "install ok installed $(dpkg-parsechangelog -S Version)"
+          mouse-masterctl --version
+          mouse-masterd --version
+      - name: Smoke-test GUI startup
+        env:
+          QT_QPA_PLATFORM: offscreen
+          MM_SCREENSHOT: /tmp/mouse-master.png
+          MM_SCREENSHOT_DELAY: "500"
+        run: |
+          mouse-master
+          test -s "$MM_SCREENSHOT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mouse-master-${{ matrix.distro }}-${{ github.run_number }}
+          path: ../mouse-master_*.deb
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deb-metadata-${{ matrix.distro }}
+          path: |
+            debian/revision
+            debian/changelog
+          if-no-files-found: error
+
+  persist-deb-revision:
+    name: Persist DEB revision
+    needs: package-deb
+    if: github.event_name == 'push' && github.actor == github.repository_owner && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v4
+        with:
+          name: deb-metadata-Debian 13
+          path: generated-debian
+      - name: Persist generated revision and changelog
+        run: |
+          current_revision="$(<debian/revision)"
+          generated_revision="$(<generated-debian/revision)"
+          if [[ ! "$current_revision" =~ ^[0-9]+$ || ! "$generated_revision" =~ ^[0-9]+$ ]]; then
+            echo "Invalid DEB revision metadata" >&2
+            exit 1
+          fi
+          if (( generated_revision <= current_revision )); then
+            echo "Revision artifact is stale; repository already has revision ${current_revision}"
+            exit 0
+          fi
+          cp generated-debian/revision debian/revision
+          cp generated-debian/changelog debian/changelog
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add debian/revision debian/changelog
+          if git diff --cached --quiet; then
+            echo "No DEB revision update to persist"
+            exit 0
+          fi
+          git commit -m "ci: persist DEB package revision [skip ci]"
+          git push
+
 
   build:
     name: Full build (Arch Linux, Qt 6)

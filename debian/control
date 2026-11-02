@@ -1,0 +1,33 @@
+Source: mouse-master
+Section: utils
+Priority: optional
+Maintainer: Burak Goncu <burakgon12@gmail.com>
+Build-Depends:
+ debhelper-compat (= 13),
+ build-essential,
+ cmake,
+ rustup,
+ libudev-dev,
+ pkg-config,
+ qt6-base-dev,
+ qt6-declarative-dev,
+ qt6-svg-dev
+Standards-Version: 4.7.2
+Homepage: https://github.com/burakgon/mouse-master-linux
+Rules-Requires-Root: no
+
+Package: mouse-master
+Architecture: amd64
+Depends:
+ ${shlibs:Depends},
+ ${misc:Depends},
+ qml6-module-qtquick-controls,
+ qml6-module-qtquick-layouts,
+ qml6-module-qtquick-shapes,
+ qml6-module-qtquick-effects,
+ qml6-module-qtquick-dialogs,
+ qml6-module-qtcore
+Description: configure Logitech mice on Linux
+ Mouse Master configures Logitech mice on Linux. It provides a Qt desktop
+ application, a per-user background service and a command-line client for
+ buttons, gestures, scrolling, pointer speed and device settings.

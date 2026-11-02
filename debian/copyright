@@ -1,0 +1,28 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: mouse-master
+Source: https://github.com/burakgon/mouse-master-linux
+
+Files: *
+Copyright: 2026 Burak Goncu
+License: GPL-3.0-or-later
+ This program is free software: you can redistribute it and/or modify it under
+ the terms of the GNU General Public License as published by the Free Software
+ Foundation, either version 3 of the License, or (at your option) any later
+ version.
+ .
+ This program is distributed in the hope that it will be useful, but WITHOUT
+ ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ .
+ You should have received a copy of the GNU General Public License along with
+ this program. If not, see <https://www.gnu.org/licenses/>.
+
+Files: app/icons/lucide/*
+Copyright: 2026 Lucide Icons and Contributors
+License: ISC and MIT
+ The icons are distributed under ISC; icons derived from Feather are also
+ subject to the MIT license. See app/icons/lucide/LICENSE for the full notices.
+
+License: GPL-3.0-or-later
+ The complete text of the GNU General Public License version 3 is available in
+ /usr/share/common-licenses/GPL-3.

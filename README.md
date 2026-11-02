@@ -9,7 +9,7 @@
 Remap every button, hold and move for gestures, tune SmartShift and the thumb wheel,<br>
 and give every application its own setup. Native on KDE Plasma, Hyprland, Sway and GNOME.
 
-[![CI](https://github.com/burakgon/mouse-master-linux/actions/workflows/ci.yml/badge.svg)](https://github.com/burakgon/mouse-master-linux/actions/workflows/ci.yml)
+[![CI](https://github.com/pepesan/mouse-master-linux/actions/workflows/ci.yml/badge.svg)](https://github.com/pepesan/mouse-master-linux/actions/workflows/ci.yml)
 [![License: GPL v3+](https://img.shields.io/badge/license-GPL--3.0--or--later-blue.svg)](LICENSE)
 ![Wayland](https://img.shields.io/badge/Wayland-native-5b7cff)
 ![Rust](https://img.shields.io/badge/service-Rust-orange)
@@ -92,15 +92,43 @@ cd mouse-master-linux/packaging/arch && makepkg -si
 systemctl --user enable --now mouse-master.service
 ```
 
+### DEB packages (Debian 13 and Ubuntu 26.04)
+
+The Debian packaging targets Debian 13 and Ubuntu 26.04. After updating the application version
+in CMake, Cargo and the latest AppStream release entry, build the package with:
+
+```sh
+./scripts/build-deps.sh
+./scripts/build-deb.sh
+package_version=$(dpkg-parsechangelog -S Version)
+sudo apt install "../mouse-master_${package_version}_amd64.deb"
+```
+
+Each build increments the DEB revision stored in `debian/revision`, while keeping the upstream
+application version unchanged. The generated revision is also recorded in `debian/changelog`.
+GitHub Actions builds and uploads separate Debian 13 and Ubuntu 26.04 `.deb` artifacts. After
+successful pushes to `main` by the repository owner, Actions commits the new revision and changelog
+back to the branch. This requires repository Actions write permission and branch rules that allow
+the bot commit.
+
+Then enable the per-user service:
+
+```sh
+systemctl --user enable --now mouse-master.service
+```
+
+Only Debian 13 and Ubuntu 26.04 are supported package targets. Debian 12 and Ubuntu 24.04 ship
+Qt 6.4.2; Mouse Master requires Qt 6.5 or newer, and their backports do not provide a newer Qt.
+
 ### From source (any distribution)
 
-You need Rust (1.85+), CMake, a C++ compiler and Qt 6.5 or newer:
+You need Rust (1.87+), CMake, a C++ compiler and Qt 6.5 or newer:
 
 | Distribution | Packages |
 | --- | --- |
 | Arch, CachyOS, Manjaro | `sudo pacman -S --needed rust cmake qt6-base qt6-declarative qt6-svg qt6-wayland` |
 | Fedora | `sudo dnf install cargo cmake gcc-c++ qt6-qtbase-devel qt6-qtdeclarative-devel qt6-qtsvg-devel systemd-devel` |
-| Debian 13, Ubuntu 24.10+ | `sudo apt install cargo cmake g++ libudev-dev qt6-base-dev qt6-declarative-dev qt6-svg-dev qt6-wayland qml6-module-qtquick-controls qml6-module-qtquick-layouts qml6-module-qtquick-shapes qml6-module-qtquick-effects qml6-module-qtquick-dialogs qml6-module-qtcore` |
+| Debian 13, Ubuntu 26.04 | `sudo apt install build-essential ca-certificates cmake debhelper g++ libudev-dev pkg-config qt6-base-dev qt6-declarative-dev qt6-svg-dev qt6-wayland qml6-module-qtquick-controls qml6-module-qtquick-layouts qml6-module-qtquick-shapes qml6-module-qtquick-effects qml6-module-qtquick-dialogs qml6-module-qtcore rustup` |
 | openSUSE Tumbleweed | `sudo zypper install cargo cmake gcc-c++ qt6-base-devel qt6-declarative-devel qt6-svg-devel systemd-devel` |
 
 Then:
@@ -108,7 +136,8 @@ Then:
 ```sh
 git clone https://github.com/burakgon/mouse-master-linux
 cd mouse-master-linux
-./scripts/install.sh            # installs to /usr/local, sets up device access and the service
+./scripts/build-deps.sh          # Debian 13 / Ubuntu 26.04
+./scripts/install.sh             # installs to /usr/local, sets up device access and the service
 ```
 
 `./scripts/install.sh --uninstall` removes it again (your settings stay in `~/.config/mouse-master`).

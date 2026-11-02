@@ -1,0 +1,15 @@
+#!/usr/bin/make -f
+export PATH := $(HOME)/.cargo/bin:$(PATH)
+export RUSTUP_TOOLCHAIN := stable
+
+%:
+	dh $@ --buildsystem=cmake
+
+override_dh_auto_configure:
+	dh_auto_configure -- -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DUDEV_RULES_DIR=/usr/lib/udev/rules.d -DSYSTEMD_USER_UNIT_DIR=/usr/lib/systemd/user
+
+override_dh_auto_build:
+	dh_auto_build --parallel
+
+override_dh_installudev:
+	dh_installudev

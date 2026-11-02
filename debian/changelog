@@ -1,0 +1,5 @@
+mouse-master (0.1.0) unstable; urgency=medium
+
+  * Initial Ubuntu 26.04 package.
+
+ -- Burak Goncu <burakgon12@gmail.com>  Mon, 02 Nov 2026 12:00:00 +0000

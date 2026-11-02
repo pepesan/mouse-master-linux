@@ -1,3 +1,9 @@
+mouse-master (0.1.0-2) unstable; urgency=medium
+
+  * Debian package revision 2 for upstream version 0.1.0.
+
+ -- Burak Goncu <burakgon12@gmail.com>  Mon, 02 Nov 2026 20:51:21 +0000
+
 mouse-master (0.1.0-1) unstable; urgency=medium
 
   * Debian package revision 1 for upstream version 0.1.0.

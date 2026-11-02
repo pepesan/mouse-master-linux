@@ -1,3 +1,9 @@
+mouse-master (0.1.0-1) unstable; urgency=medium
+
+  * Debian package revision 1 for upstream version 0.1.0.
+
+ -- Burak Goncu <burakgon12@gmail.com>  Mon, 02 Nov 2026 20:37:29 +0000
+
 mouse-master (0.1.0) unstable; urgency=medium
 
   * Initial Ubuntu 26.04 package.

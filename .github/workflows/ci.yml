@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -79,7 +80,7 @@ jobs:
   persist-deb-revision:
     name: Persist DEB revision
     needs: package-deb
-    if: github.event_name == 'push' && github.actor == github.repository_owner && github.ref == 'refs/heads/main'
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.actor == github.repository_owner && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: write

@@ -15,7 +15,7 @@ rust-version = "1.87"
 hidpp = { path = "crates/hidpp" }
 anyhow = "1.0"
 thiserror = "2.0"
-tokio = { version = "1.53", features = ["rt", "rt-multi-thread", "macros", "sync", "time", "net", "io-util", "signal", "fs", "process"] }
+tokio = { version = "1.53", features = ["rt", "rt-multi-thread", "macros", "sync", "time", "net", "io-util", "signal", "process"] }
 futures = "0.3"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }

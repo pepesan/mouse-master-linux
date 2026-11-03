@@ -7,6 +7,7 @@ Build-Depends:
  build-essential,
  cmake,
  rustup,
+ ca-certificates,
  libudev-dev,
  pkg-config,
  qt6-base-dev,
@@ -21,6 +22,8 @@ Architecture: amd64
 Depends:
  ${shlibs:Depends},
  ${misc:Depends},
+ qt6-wayland,
+ qml6-module-qtquick,
  qml6-module-qtquick-controls,
  qml6-module-qtquick-layouts,
  qml6-module-qtquick-shapes,

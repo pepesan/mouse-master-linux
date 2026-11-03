@@ -61,6 +61,7 @@ packages=(
     qt6-declarative-dev
     qt6-svg-dev
     qt6-wayland
+    qml6-module-qtquick
     qml6-module-qtquick-controls
     qml6-module-qtquick-layouts
     qml6-module-qtquick-shapes

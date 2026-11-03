@@ -146,7 +146,7 @@ You need Rust (1.87+), CMake, a C++ compiler and Qt 6.5 or newer:
 | --- | --- |
 | Arch, CachyOS, Manjaro | `sudo pacman -S --needed rust cmake qt6-base qt6-declarative qt6-svg qt6-wayland` |
 | Fedora | `sudo dnf install cargo cmake gcc-c++ qt6-qtbase-devel qt6-qtdeclarative-devel qt6-qtsvg-devel systemd-devel` |
-| Debian 13, Ubuntu 26.04 | `sudo apt install build-essential ca-certificates cmake debhelper g++ libudev-dev pkg-config qt6-base-dev qt6-declarative-dev qt6-svg-dev qt6-wayland qml6-module-qtquick-controls qml6-module-qtquick-layouts qml6-module-qtquick-shapes qml6-module-qtquick-effects qml6-module-qtquick-dialogs qml6-module-qtcore rustup` |
+| Debian 13, Ubuntu 26.04 | `sudo apt install build-essential ca-certificates cmake debhelper g++ libudev-dev pkg-config qt6-base-dev qt6-declarative-dev qt6-svg-dev qt6-wayland qml6-module-qtquick qml6-module-qtquick-controls qml6-module-qtquick-layouts qml6-module-qtquick-shapes qml6-module-qtquick-effects qml6-module-qtquick-dialogs qml6-module-qtcore rustup` |
 | openSUSE Tumbleweed | `sudo zypper install cargo cmake gcc-c++ qt6-base-devel qt6-declarative-devel qt6-svg-devel systemd-devel` |
 
 Then:

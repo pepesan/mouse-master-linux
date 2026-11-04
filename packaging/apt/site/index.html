@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Mouse Master APT package repositories for Debian 13 and Ubuntu 26.04.">
+    <title>Mouse Master — APT repositories</title>
+    <style>
+        :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+        body { margin: 0; line-height: 1.6; }
+        main, header, footer { box-sizing: border-box; max-width: 52rem; margin: 0 auto; padding: 1.5rem; }
+        header { padding-top: 3rem; }
+        h1 { line-height: 1.2; }
+        nav { display: flex; gap: 1rem; max-width: 52rem; margin: 0 auto; padding: 0 1.5rem 1rem; }
+        section { border-top: 1px solid; padding: 1.5rem 0; }
+        li { margin: .4rem 0; }
+        code { overflow-wrap: anywhere; }
+        footer { border-top: 1px solid; font-size: .9rem; }
+    </style>
+</head>
+<body>
+    <header>
+        <p>Software packages · APT</p>
+        <h1>Mouse Master package repositories</h1>
+        <p>This host serves Mouse Master packages and signed APT metadata over HTTPS.</p>
+    </header>
+    <nav aria-label="Language">
+        <a href="#english">English</a>
+        <a href="#espanol">Español</a>
+    </nav>
+    <main>
+        <section id="english" lang="en">
+            <h2>English</h2>
+            <p>Choose the repository matching your operating system. APT verifies signed repository metadata; no website login is required.</p>
+            <ul>
+                <li><a href="/apt/mouse-master/dists/trixie/InRelease">Debian 13 (Trixie) APT repository</a></li>
+                <li><a href="/apt/mouse-master/dists/resolute/InRelease">Ubuntu 26.04 (Resolute) APT repository</a></li>
+            </ul>
+            <p>Base URI: <code>https://repo.cursosdedesarrollo.com/apt/mouse-master</code></p>
+            <p>Use only the suite for your distribution: <code>trixie</code> for Debian 13 or <code>resolute</code> for Ubuntu 26.04. See the <a href="https://github.com/pepesan/mouse-master-linux">source repository</a> for installation instructions.</p>
+        </section>
+        <section id="espanol" lang="es">
+            <h2>Español</h2>
+            <p>Este servidor ofrece paquetes de Mouse Master y metadatos APT firmados mediante HTTPS. APT verifica las firmas; no se necesita iniciar sesión en la web.</p>
+            <ul>
+                <li><a href="/apt/mouse-master/dists/trixie/InRelease">Repositorio APT para Debian 13 (Trixie)</a></li>
+                <li><a href="/apt/mouse-master/dists/resolute/InRelease">Repositorio APT para Ubuntu 26.04 (Resolute)</a></li>
+            </ul>
+            <p>URI base: <code>https://repo.cursosdedesarrollo.com/apt/mouse-master</code></p>
+            <p>Configura solo la suite correspondiente: <code>trixie</code> para Debian 13 o <code>resolute</code> para Ubuntu 26.04. Consulta las <a href="https://github.com/pepesan/mouse-master-linux">instrucciones de instalación en el repositorio fuente</a>.</p>
+        </section>
+    </main>
+    <footer>
+        <a href="https://github.com/pepesan/mouse-master-linux">Mouse Master on GitHub</a>
+    </footer>
+</body>
+</html>

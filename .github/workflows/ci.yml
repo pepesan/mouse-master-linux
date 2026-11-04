@@ -8,7 +8,7 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   rust:
@@ -169,6 +169,122 @@ jobs:
           fail_on_unmatched_files: true
           overwrite_files: true
 
+
+  publish-apt:
+    name: Publish signed APT repository
+    needs: [package-deb, persist-deb-revision]
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.actor == github.repository_owner && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: apt-publish
+    outputs:
+      version: ${{ steps.packages.outputs.version }}
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v4
+        with:
+          name: mouse-master-Debian 13-${{ github.run_number }}
+          path: dist/debian
+      - uses: actions/download-artifact@v4
+        with:
+          name: mouse-master-Ubuntu 26.04-${{ github.run_number }}
+          path: dist/ubuntu
+      - name: Validate and name distribution artifacts
+        id: packages
+        run: |
+          set -euo pipefail
+          debian_packages=(dist/debian/*.deb)
+          ubuntu_packages=(dist/ubuntu/*.deb)
+          if [[ ${#debian_packages[@]} -ne 1 || ! -f ${debian_packages[0]} ]]; then
+            echo "Expected exactly one Debian 13 package artifact" >&2
+            exit 1
+          fi
+          if [[ ${#ubuntu_packages[@]} -ne 1 || ! -f ${ubuntu_packages[0]} ]]; then
+            echo "Expected exactly one Ubuntu 26.04 package artifact" >&2
+            exit 1
+          fi
+          debian_version="$(dpkg-deb -f "${debian_packages[0]}" Version)"
+          ubuntu_version="$(dpkg-deb -f "${ubuntu_packages[0]}" Version)"
+          [[ "$debian_version" == "$ubuntu_version" ]] || {
+            echo "Debian and Ubuntu artifact versions differ" >&2
+            exit 1
+          }
+          [[ "$(dpkg-deb -f "${debian_packages[0]}" Package)" == mouse-master ]]
+          [[ "$(dpkg-deb -f "${ubuntu_packages[0]}" Package)" == mouse-master ]]
+          [[ "$(dpkg-deb -f "${debian_packages[0]}" Architecture)" == amd64 ]]
+          [[ "$(dpkg-deb -f "${ubuntu_packages[0]}" Architecture)" == amd64 ]]
+          [[ "$debian_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-[0-9]+$ ]]
+          debian_name="mouse-master_${debian_version}_debian13_amd64.deb"
+          ubuntu_name="mouse-master_${ubuntu_version}_ubuntu26.04_amd64.deb"
+          mv "${debian_packages[0]}" "dist/$debian_name"
+          mv "${ubuntu_packages[0]}" "dist/$ubuntu_name"
+          {
+            echo "version=$debian_version"
+            echo "debian_name=$debian_name"
+            echo "ubuntu_name=$ubuntu_name"
+          } >> "$GITHUB_OUTPUT"
+      - name: Send packages to Rivendel
+        env:
+          RIVENDEL_SSH_PRIVATE_KEY: ${{ secrets.RIVENDEL_SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$RIVENDEL_SSH_PRIVATE_KEY" ]]; then
+            echo "Configure RIVENDEL_SSH_PRIVATE_KEY in the apt-publish environment" >&2
+            exit 1
+          fi
+          key_file="$RUNNER_TEMP/rivendel-apt-publisher"
+          printf '%s\n' "$RIVENDEL_SSH_PRIVATE_KEY" > "$key_file"
+          chmod 0600 "$key_file"
+          trap 'rm -f -- "$key_file"' EXIT
+          cp packaging/apt/site/index.html dist/index.html
+          tar -czf - -C dist "${{ steps.packages.outputs.debian_name }}" "${{ steps.packages.outputs.ubuntu_name }}" index.html |
+            ssh -i "$key_file" \
+              -o IdentitiesOnly=yes \
+              -o BatchMode=yes \
+              -o ConnectTimeout=15 \
+              -o StrictHostKeyChecking=yes \
+              -o UserKnownHostsFile=packaging/apt/known_hosts \
+              -T apt-publisher@rivendel.cursosdedesarrollo.com
+
+  verify-apt:
+    name: Verify APT install (${{ matrix.distro }})
+    needs: [publish-apt]
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ matrix.image }}
+    strategy:
+      matrix:
+        include:
+          - distro: Debian 13
+            image: debian:13
+            suite: trixie
+          - distro: Ubuntu 26.04
+            image: ubuntu:26.04
+            suite: resolute
+    env:
+      APT_SUITE: ${{ matrix.suite }}
+      PACKAGE_VERSION: ${{ needs.publish-apt.outputs.version }}
+    steps:
+      - name: Install repository client tools
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates curl
+      - name: Configure signed APT source
+        run: |
+          install -d -m 0755 /etc/apt/keyrings
+          curl -fsSLo /etc/apt/keyrings/cursos-repo.gpg https://repo.cursosdedesarrollo.com/apt/mouse-master/cursos-repo.gpg
+          chmod 0644 /etc/apt/keyrings/cursos-repo.gpg
+          printf 'deb [arch=amd64 signed-by=/etc/apt/keyrings/cursos-repo.gpg] https://repo.cursosdedesarrollo.com/apt/mouse-master %s main\n' "$APT_SUITE" > /etc/apt/sources.list.d/mouse-master.list
+      - name: Verify metadata is public and install exact package
+        run: |
+          status="$(curl -sS -o /dev/null -w '%{http_code}' "https://repo.cursosdedesarrollo.com/apt/mouse-master/dists/${APT_SUITE}/InRelease")"
+          test "$status" = 200
+          apt-get update
+          apt-get install -y "mouse-master=${PACKAGE_VERSION}"
+          dpkg-query -W -f='${Status} ${Version}\n' mouse-master | grep -F "install ok installed ${PACKAGE_VERSION}"
+          mouse-masterctl --version
 
   build:
     name: Full build (Arch Linux, Qt 6)

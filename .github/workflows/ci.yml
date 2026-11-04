@@ -5,6 +5,12 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      force_package:
+        description: Force a DEB build and publication without package input changes
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -25,8 +31,53 @@ jobs:
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - run: cargo test --workspace --locked
+
+  detect_deb_changes:
+    name: Detect DEB package inputs
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.filter.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Check changed package inputs
+        id: filter
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PUSH_BASE_SHA: ${{ github.event.before }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          FORCE_PACKAGE: ${{ github.event.inputs.force_package || 'false' }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            changed=false
+            [[ "$FORCE_PACKAGE" != "true" ]] || changed=true
+          else
+            base_sha="$PUSH_BASE_SHA"
+            [[ "$EVENT_NAME" != "pull_request" ]] || base_sha="$PR_BASE_SHA"
+            if [[ -z "$base_sha" || "$base_sha" =~ ^0+$ ]] || ! git cat-file -e "${base_sha}^{commit}" 2>/dev/null; then
+              changed=true
+              echo "Base commit unavailable; running the DEB matrix conservatively."
+            else
+              changed=false
+              while IFS= read -r path; do
+                case "$path" in
+                  app/*|crates/*|data/*|debian/*|CMakeLists.txt|Cargo.toml|Cargo.lock|scripts/build-deps.sh|scripts/build-deb.sh)
+                    changed=true
+                    break
+                    ;;
+                esac
+              done < <(git diff --name-only "$base_sha" "$GITHUB_SHA")
+            fi
+          fi
+          echo "Package inputs changed: $changed"
+          echo "changed=$changed" >> "$GITHUB_OUTPUT"
+
   package-deb:
     name: DEB package (${{ matrix.distro }})
+    needs: detect_deb_changes
+    if: needs.detect_deb_changes.outputs.changed == 'true'
     runs-on: ubuntu-latest
     container:
       image: ${{ matrix.image }}

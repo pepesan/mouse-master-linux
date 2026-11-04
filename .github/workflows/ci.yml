@@ -37,42 +37,85 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       changed: ${{ steps.filter.outputs.changed }}
+      increment: ${{ steps.filter.outputs.increment }}
+      create_pr: ${{ steps.filter.outputs.create_pr }}
+      publish_ready: ${{ steps.filter.outputs.publish_ready }}
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - name: Check changed package inputs
+      - name: Classify package changes
         id: filter
         env:
           EVENT_NAME: ${{ github.event_name }}
+          GITHUB_REF: ${{ github.ref }}
           PUSH_BASE_SHA: ${{ github.event.before }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           FORCE_PACKAGE: ${{ github.event.inputs.force_package || 'false' }}
         run: |
           set -euo pipefail
+          changed=false
+          increment=false
+          create_pr=false
+          publish_ready=false
+
           if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
-            changed=false
-            [[ "$FORCE_PACKAGE" != "true" ]] || changed=true
+            if [[ "$FORCE_PACKAGE" == "true" ]]; then
+              changed=true
+              increment=true
+              [[ "$GITHUB_REF" != "refs/heads/main" ]] || create_pr=true
+            elif [[ "$GITHUB_REF" == "refs/heads/automation/deb-revision" ]]; then
+              changed=true
+            fi
           else
             base_sha="$PUSH_BASE_SHA"
             [[ "$EVENT_NAME" != "pull_request" ]] || base_sha="$PR_BASE_SHA"
             if [[ -z "$base_sha" || "$base_sha" =~ ^0+$ ]] || ! git cat-file -e "${base_sha}^{commit}" 2>/dev/null; then
               changed=true
+              increment=true
+              if [[ "$EVENT_NAME" == "push" && "$GITHUB_REF" == "refs/heads/main" ]]; then
+                create_pr=true
+              fi
               echo "Base commit unavailable; running the DEB matrix conservatively."
             else
-              changed=false
+              package_changed=false
+              metadata_changed=false
               while IFS= read -r path; do
                 case "$path" in
+                  debian/revision|debian/changelog)
+                    metadata_changed=true
+                    ;;
                   app/*|crates/*|data/*|debian/*|CMakeLists.txt|Cargo.toml|Cargo.lock|scripts/build-deps.sh|scripts/build-deb.sh)
-                    changed=true
-                    break
+                    package_changed=true
                     ;;
                 esac
               done < <(git diff --name-only "$base_sha" "$GITHUB_SHA")
+
+              if [[ "$package_changed" == "true" ]]; then
+                changed=true
+                increment=true
+                if [[ "$EVENT_NAME" == "push" && "$GITHUB_REF" == "refs/heads/main" ]]; then
+                  create_pr=true
+                fi
+              elif [[ "$metadata_changed" == "true" ]]; then
+                changed=true
+                if [[ "$EVENT_NAME" == "push" && "$GITHUB_REF" == "refs/heads/main" ]]; then
+                  publish_ready=true
+                fi
+              fi
             fi
           fi
-          echo "Package inputs changed: $changed"
-          echo "changed=$changed" >> "$GITHUB_OUTPUT"
+
+          echo "Package build required: $changed"
+          echo "Increment package revision: $increment"
+          echo "Open revision PR: $create_pr"
+          echo "Publish merged revision: $publish_ready"
+          {
+            echo "changed=$changed"
+            echo "increment=$increment"
+            echo "create_pr=$create_pr"
+            echo "publish_ready=$publish_ready"
+          } >> "$GITHUB_OUTPUT"
 
   package-deb:
     name: DEB package (${{ matrix.distro }})
@@ -94,8 +137,15 @@ jobs:
       - uses: actions/checkout@v7
       - name: Install build dependencies
         run: ./scripts/build-deps.sh
-      - name: Build DEB with incremented package revision
-        run: ./scripts/build-deb.sh
+      - name: Build DEB package
+        env:
+          INCREMENT_REVISION: ${{ needs.detect_deb_changes.outputs.increment }}
+        run: |
+          if [[ "$INCREMENT_REVISION" == "true" ]]; then
+            ./scripts/build-deb.sh
+          else
+            ./scripts/build-deb.sh --no-increment
+          fi
       - name: Stage DEB artifact
         run: mkdir -p artifacts && cp ../mouse-master_*.deb artifacts/
       - name: Inspect package
@@ -130,21 +180,58 @@ jobs:
             debian/changelog
           if-no-files-found: error
 
+  deb-package-check:
+    name: DEB package validation
+    needs: [detect_deb_changes, package-deb]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require DEB matrix when package inputs change
+        env:
+          DETECT_RESULT: ${{ needs.detect_deb_changes.result }}
+          PACKAGE_CHANGED: ${{ needs.detect_deb_changes.outputs.changed }}
+          PACKAGE_RESULT: ${{ needs['package-deb'].result }}
+        run: |
+          set -euo pipefail
+          if [[ "$DETECT_RESULT" != "success" ]]; then
+            echo "DEB input detection did not succeed" >&2
+            exit 1
+          fi
+          if [[ "$PACKAGE_CHANGED" == "true" ]]; then
+            if [[ "$PACKAGE_RESULT" != "success" ]]; then
+              echo "Package inputs changed but the Debian/Ubuntu matrix did not pass" >&2
+              exit 1
+            fi
+          elif [[ "$PACKAGE_RESULT" != "success" && "$PACKAGE_RESULT" != "skipped" ]]; then
+            echo "Unexpected DEB matrix result without package input changes: $PACKAGE_RESULT" >&2
+            exit 1
+          fi
+
   persist-deb-revision:
-    name: Persist DEB revision
-    needs: package-deb
-    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.actor == github.repository_owner && github.ref == 'refs/heads/main'
+    name: Open DEB revision PR
+    needs: [detect_deb_changes, package-deb]
+    if: needs.detect_deb_changes.outputs.create_pr == 'true' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.actor == github.repository_owner && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
+      actions: write
       contents: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: actions/download-artifact@v4
         with:
           name: deb-metadata-Debian 13
           path: generated-debian
-      - name: Persist generated revision and changelog
+      - name: Open or update revision PR and wait for required checks
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
+          GITHUB_SHA: ${{ github.sha }}
         run: |
+          set -euo pipefail
           current_revision="$(<debian/revision)"
           generated_revision="$(<generated-debian/revision)"
           if [[ ! "$current_revision" =~ ^[0-9]+$ || ! "$generated_revision" =~ ^[0-9]+$ ]]; then
@@ -152,25 +239,59 @@ jobs:
             exit 1
           fi
           if (( generated_revision <= current_revision )); then
-            echo "Revision artifact is stale; repository already has revision ${current_revision}"
+            echo "Revision artifact is stale; no revision PR is needed"
             exit 0
           fi
+
+          git fetch origin main
+          main_sha="$(git rev-parse FETCH_HEAD)"
+          if [[ "$main_sha" != "$GITHUB_SHA" ]]; then
+            echo "This run is stale; main advanced to $main_sha before the revision PR was prepared"
+            exit 0
+          fi
+
+          branch="automation/deb-revision"
+          git switch --create "$branch" "$main_sha"
           cp generated-debian/revision debian/revision
           cp generated-debian/changelog debian/changelog
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add debian/revision debian/changelog
           if git diff --cached --quiet; then
-            echo "No DEB revision update to persist"
+            echo "No DEB revision update to propose"
             exit 0
           fi
-          git commit -m "ci: persist DEB package revision [skip ci]"
-          git push
+          package_version="$(awk -F '[()]' 'NR == 1 { print $2; exit }' debian/changelog)"
+          app_version="$(awk '$1 == "project(mouse-master" { print $3; exit }' CMakeLists.txt)"
+          expected_version="${app_version}-${generated_revision}"
+          if [[ "$package_version" != "$expected_version" ]]; then
+            echo "Generated changelog version $package_version does not match expected $expected_version" >&2
+            exit 1
+          fi
+          git commit -m "ci: propose DEB package revision $package_version"
+          git push --force origin "HEAD:refs/heads/$branch"
+
+          title="chore(debian): prepare package revision $package_version"
+          body="CI built and smoke-tested both distribution packages for \`$package_version\`. Merge this PR to authorize the Release and APT publication from \`main\`. The merge build will reuse this revision without incrementing it again."
+          pr_number="$(gh pr list --base main --head "$GITHUB_REPOSITORY_OWNER:$branch" --json number --jq '.[0].number // empty')"
+          if [[ -z "$pr_number" ]]; then
+            gh pr create --base main --head "$GITHUB_REPOSITORY_OWNER:$branch" --title "$title" --body "$body"
+          else
+            gh pr edit "$pr_number" --title "$title" --body "$body"
+          fi
+
+          run_url="$(gh workflow run ci.yml --ref "$branch" -f force_package=false)"
+          run_id="${run_url##*/}"
+          if [[ ! "$run_id" =~ ^[0-9]+$ ]]; then
+            echo "Could not parse revision PR validation run URL: $run_url" >&2
+            exit 1
+          fi
+          gh run watch "$run_id" --exit-status
 
   publish-deb-release:
     name: Publish DEB release
-    needs: [package-deb, persist-deb-revision]
-    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.actor == github.repository_owner && github.ref == 'refs/heads/main'
+    needs: [detect_deb_changes, package-deb]
+    if: needs.detect_deb_changes.outputs.publish_ready == 'true' && github.event_name == 'push' && github.actor == github.repository_owner && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -223,8 +344,8 @@ jobs:
 
   publish-apt:
     name: Publish signed APT repository
-    needs: [package-deb, persist-deb-revision]
-    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.actor == github.repository_owner && github.ref == 'refs/heads/main'
+    needs: [detect_deb_changes, package-deb]
+    if: needs.detect_deb_changes.outputs.publish_ready == 'true' && github.event_name == 'push' && github.actor == github.repository_owner && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: apt-publish
     outputs:

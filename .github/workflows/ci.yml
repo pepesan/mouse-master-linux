@@ -141,7 +141,7 @@ jobs:
         env:
           INCREMENT_REVISION: ${{ needs.detect_deb_changes.outputs.increment }}
         run: |
-          if [[ "$INCREMENT_REVISION" == "true" ]]; then
+          if [ "$INCREMENT_REVISION" = "true" ]; then
             ./scripts/build-deb.sh
           else
             ./scripts/build-deb.sh --no-increment

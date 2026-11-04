@@ -1,0 +1,13 @@
+#!/bin/sh
+set -e
+
+# The udev rule ships in /usr/lib/udev/rules.d. Reload it and re-apply access
+# to existing Logitech hidraw nodes and /dev/uinput after install or upgrade.
+if [ "$1" = configure ] && command -v udevadm >/dev/null 2>&1 && udevadm control --ping >/dev/null 2>&1; then
+    udevadm control --reload-rules || true
+    udevadm trigger --action=change --subsystem-match=hidraw || true
+    udevadm trigger --action=change --subsystem-match=misc --sysname-match=uinput || true
+    udevadm settle --timeout=10 || true
+fi
+
+#DEBHELPER#

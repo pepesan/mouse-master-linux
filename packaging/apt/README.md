@@ -2,7 +2,7 @@
 
 This directory is the version-controlled source for non-secret APT publisher configuration. It targets Debian 13 (`trixie`) and Ubuntu 26.04 (`resolute`), both `amd64`.
 
-**Current state:** both local aptly repos contain package `0.1.0-5`. The owner confirmed that the production signing-key recovery material is saved in 1Password, and the production gate is enabled on Rivendel. CI publishing, the bilingual root page, and post-publication installation checks are implemented; the first production run is pending. Public `InRelease` files are not confirmed available until that run succeeds.
+**Current state:** signed APT suites `trixie` and `resolute` publish Mouse Master `0.1.0-6`. The bilingual landing page is live at `https://repo.cursosdedesarrollo.com/`. Both `InRelease` URLs return HTTP 200 without authentication; production signatures verify with fingerprint `2C38F5325DF7EE2187803C035C8B354C1929C97A`. The GitHub Actions install matrix passed on Debian 13 and Ubuntu 26.04.
 
 ## Host layout
 
@@ -25,7 +25,7 @@ Back up these paths from Rivendel with encryption and restricted access:
 3. `/var/www/vhosts/cursosdedesarrollo.com/repo.cursosdedesarrollo.com/apt/` — active `mouse-master` symlink and versioned published trees under `releases/mouse-master/`.
 4. `/etc/mouse-master-apt/` — private GPG keyring, passphrase, fingerprint and the local publication gate. Encrypt this backup and restrict access.
 5. `/root/mouse-master-apt-signing-recovery/` — encrypted private-key export and revocation certificate; protect the passphrase separately. Keep an independent copy in 1Password.
-6. `/usr/local/sbin/mouse-master-apt-import`, `/etc/sudoers.d/mouse-master-apt-publisher`, and the dedicated deploy account's restricted `authorized_keys`.
+6. `/usr/local/sbin/mouse-master-apt-import`, `/usr/local/sbin/mouse-master-apt-enable-publishing`, `/etc/sudoers.d/mouse-master-apt-publisher`, and the dedicated deploy account's restricted `authorized_keys`.
 7. Plesk domain/hosting configuration and certificate using Plesk Backup Manager or the host-level backup. Do not edit or back up generated vhost files as a substitute for Plesk's domain configuration backup.
 8. GitHub `apt-publish` Environment secret `RIVENDEL_SSH_PRIVATE_KEY`; keep it in a secret manager or rotate the deploy key and `authorized_keys` if unavailable. The pinned public SSH host key is versioned at `known_hosts`.
 
@@ -46,14 +46,14 @@ Server setup scripts:
 3. `scripts/apt-repo-deploy-user-setup.sh <public-key-file>` installs the restricted SSH account, importer and publication-gate helper.
 4. After the owner confirms the recovery material is saved in 1Password, run `/usr/local/sbin/mouse-master-apt-enable-publishing` interactively. This creates `/etc/mouse-master-apt/publish-enabled`; without that file, the importer refuses publication.
 
-The first live client checks must return HTTP 200 without authentication:
+Live checks passed: both signed `InRelease` files return HTTP 200 without authentication:
 
 - `https://repo.cursosdedesarrollo.com/apt/mouse-master/dists/trixie/InRelease`
 - `https://repo.cursosdedesarrollo.com/apt/mouse-master/dists/resolute/InRelease`
 
 The public key is `https://repo.cursosdedesarrollo.com/apt/mouse-master/cursos-repo.gpg`.
 
-After the first live checks succeed, install the repository key once:
+After the first live checks succeeded, install the repository key once:
 
 ```sh
 sudo install -d -m 0755 /etc/apt/keyrings
@@ -99,4 +99,15 @@ sudo apt update
 sudo apt install mouse-master
 ```
 
-These are target client settings, not an assertion that the public repository is live. `apt update` should not be enabled for clients until both signed `InRelease` files are published and verified.
+## First run: service and device permissions
+
+The DEB package reloads the udev rule and reapplies it to existing devices when installed or upgraded. Launch **Mouse Master**; if the service is stopped, click **Start service**. If button actions remain paused because `/dev/uinput` is inaccessible, click **Grant access** and authenticate. That action retries the same udev rule installation and restarts the service. Device settings can work before virtual input access is granted; button actions need `/dev/uinput`.
+
+Verify the setup from a terminal:
+
+```sh
+mouse-masterctl doctor
+mouse-masterctl list
+```
+
+The repository is live. CI successfully ran `apt-get update` and installed the exact published version from each corresponding suite in Debian 13 and Ubuntu 26.04 containers. Configure only your distribution's stanza above.

@@ -161,9 +161,10 @@ cd mouse-master-linux
 `./scripts/install.sh --uninstall` removes it again (your settings stay in `~/.config/mouse-master`).
 
 > [!NOTE]
-> Mouse Master needs access to your Logitech devices and to `/dev/uinput`. The installer adds a
-> udev rule that grants both to the user sitting at the computer — no root daemon, no `input`
-> group. If you install another way, the app offers to set this up for you.
+> Mouse Master needs access to your Logitech devices and to `/dev/uinput`. Its udev rule grants
+> both to the active user — no root daemon or `input` group. The DEB package reloads the rules
+> and re-applies them on install/upgrade; the source installer does the same. If the app still
+> asks for access, click *Grant access* and authenticate once.
 
 ### Hyprland, Sway and other compositors
 
@@ -293,9 +294,16 @@ Master warns you while one of them is running and applies your settings again on
 
 - **First step** — `mouse-masterctl doctor` checks the device rules, access to every Logitech
   device and to `/dev/uinput`, the service, and tools that get in the way.
-- **"Allow access to your devices" in the app** — the udev rule is missing. Click *Grant
-  access* (asks for your password once), or install it by hand:
-  `sudo install -m644 data/udev/70-mouse-master.rules /etc/udev/rules.d/ && sudo udevadm control --reload && sudo udevadm trigger`.
+- **"Allow access to your devices" in the app** — udev has not granted the active session access to
+  the Logitech `hidraw` devices or `/dev/uinput`. The DEB package refreshes the rule on install
+  and upgrade; click *Grant access* if the warning remains. To do it by hand:
+
+  ```sh
+  sudo install -m 0644 data/udev/70-mouse-master.rules /etc/udev/rules.d/
+  sudo udevadm control --reload-rules
+  sudo udevadm trigger --action=change --subsystem-match=hidraw
+  sudo udevadm trigger --action=change --subsystem-match=misc --sysname-match=uinput
+  ```
 - **A button does nothing after a crash** — the service restarts automatically and fixes it;
   turning the mouse off and on also restores its native behaviour.
 - **Scrolling suddenly too fast or slow after toggling smooth scrolling** — older kernels do

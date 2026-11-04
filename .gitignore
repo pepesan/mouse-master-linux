@@ -11,3 +11,5 @@ compile_commands.json
 /packaging/arch/pkg/
 /packaging/arch/*.tar.*
 /PLAN.md
+/CLAUDE.md
+/AGENTS.md

@@ -5,6 +5,18 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 export PATH="${CARGO_HOME:-$HOME/.cargo}/bin:$PATH"
 export RUSTUP_TOOLCHAIN=stable
+mode="${1:-increment}"
+if [[ "$#" -gt 1 ]]; then
+    printf 'usage: %s [--no-increment]\n' "$0" >&2
+    exit 2
+fi
+case "$mode" in
+    increment|--no-increment) ;;
+    *)
+        printf 'usage: %s [--no-increment]\n' "$0" >&2
+        exit 2
+        ;;
+esac
 
 app_version="$(awk '/^project\(mouse-master VERSION / { print $3; exit }' CMakeLists.txt)"
 cargo_version="$(awk '
@@ -37,36 +49,46 @@ if [[ ! "$current_revision" =~ ^[0-9]+$ ]]; then
     exit 1
 fi
 
-debian_revision=$((10#$current_revision + 1))
-desired_package_version="${app_version}-${debian_revision}"
-if dpkg --compare-versions "$desired_package_version" le "$package_version"; then
-    printf 'error: next package version %s is not newer than changelog version %s\n' \
-        "$desired_package_version" "$package_version" >&2
-    exit 1
+if [[ "$mode" == "--no-increment" ]]; then
+    desired_package_version="${app_version}-${current_revision}"
+    if [[ "$package_version" != "$desired_package_version" ]]; then
+        printf 'error: changelog version %s does not match app/revision %s\n' \
+            "$package_version" "$desired_package_version" >&2
+        exit 1
+    fi
+    printf 'Using existing DEB revision %s (app version %s)\n' "$current_revision" "$app_version"
+else
+    debian_revision=$((10#$current_revision + 1))
+    desired_package_version="${app_version}-${debian_revision}"
+    if dpkg --compare-versions "$desired_package_version" le "$package_version"; then
+        printf 'error: next package version %s is not newer than changelog version %s\n' \
+            "$desired_package_version" "$package_version" >&2
+        exit 1
+    fi
+
+    revision_tmp="$(mktemp "${revision_file}.XXXXXX")"
+    trap 'rm -f "$revision_tmp"' EXIT
+    printf '%s\n' "$debian_revision" > "$revision_tmp"
+    chmod 644 "$revision_tmp"
+    mv "$revision_tmp" "$revision_file"
+    trap - EXIT
+
+    maintainer="$(awk -F ': ' '$1 == "Maintainer" { print $2; exit }' debian/control)"
+    date="$(LC_ALL=C date -R)"
+    changelog_tmp="$(mktemp debian/changelog.XXXXXX)"
+    trap 'rm -f "$changelog_tmp"' EXIT
+    {
+        printf 'mouse-master (%s) unstable; urgency=medium\n\n' "$desired_package_version"
+        printf '  * Debian package revision %s for upstream version %s.\n\n' \
+            "$debian_revision" "$app_version"
+        printf ' -- %s  %s\n\n' "$maintainer" "$date"
+        cat debian/changelog
+    } > "$changelog_tmp"
+    chmod 644 "$changelog_tmp"
+    mv "$changelog_tmp" debian/changelog
+    trap - EXIT
+    printf 'Incremented DEB revision to %s (app version %s)\n' "$debian_revision" "$app_version"
 fi
-
-revision_tmp="$(mktemp "${revision_file}.XXXXXX")"
-trap 'rm -f "$revision_tmp"' EXIT
-printf '%s\n' "$debian_revision" > "$revision_tmp"
-chmod 644 "$revision_tmp"
-mv "$revision_tmp" "$revision_file"
-trap - EXIT
-
-maintainer="$(awk -F ': ' '$1 == "Maintainer" { print $2; exit }' debian/control)"
-date="$(LC_ALL=C date -R)"
-changelog_tmp="$(mktemp debian/changelog.XXXXXX)"
-trap 'rm -f "$changelog_tmp"' EXIT
-{
-    printf 'mouse-master (%s) unstable; urgency=medium\n\n' "$desired_package_version"
-    printf '  * Debian package revision %s for upstream version %s.\n\n' \
-        "$debian_revision" "$app_version"
-    printf ' -- %s  %s\n\n' "$maintainer" "$date"
-    cat debian/changelog
-} > "$changelog_tmp"
-chmod 644 "$changelog_tmp"
-mv "$changelog_tmp" debian/changelog
-trap - EXIT
-printf 'Incremented DEB revision to %s (app version %s)\n' "$debian_revision" "$app_version"
 
 command dpkg-buildpackage -us -uc -b
 printf 'Built ../mouse-master_%s_amd64.deb\n' "$desired_package_version"

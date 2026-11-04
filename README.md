@@ -94,46 +94,76 @@ systemctl --user enable --now mouse-master.service
 
 ### DEB packages (Debian 13 and Ubuntu 26.04)
 
-The Debian packaging targets Debian 13 and Ubuntu 26.04. After updating the application version
-in CMake, Cargo and the latest AppStream release entry, build the package with:
+Add the signed APT repository and install Mouse Master on `amd64`.
+
+#### 1. Install the client tools needed to download the key
 
 ```sh
-./scripts/build-deps.sh
-./scripts/build-deb.sh
-package_version=$(dpkg-parsechangelog -S Version)
-sudo apt install "../mouse-master_${package_version}_amd64.deb"
+sudo apt update
+sudo apt install ca-certificates curl
 ```
 
-Each build increments the DEB revision stored in `debian/revision`, while keeping the upstream
-application version unchanged. The generated revision is also recorded in `debian/changelog`.
-GitHub Actions builds and tests separate Debian 13 and Ubuntu 26.04 `.deb` packages. Pushes by the
-repository owner and manual runs by the owner on `main` publish a versioned GitHub Release
-(`deb-<package-version>`) with both distro-specific assets and publish the packages to the signed
-APT repository. The workflow also persists the new package revision and changelog to the branch.
-APT source stanzas and installation instructions for each distribution are in
-[the APT repository guide](packaging/apt/README.md).
-
-#### Install on Debian 13
-
-From [Releases](https://github.com/pepesan/mouse-master-linux/releases), download the asset ending
-in `_debian13_amd64.deb`. Replace `0.1.0-3` below with the package version shown in the release:
+#### 2. Install the repository signing key
 
 ```sh
-sudo apt install ./mouse-master_0.1.0-3_debian13_amd64.deb
+sudo install -d -m 0755 /etc/apt/keyrings
+sudo curl -fsSLo /etc/apt/keyrings/cursos-repo.gpg \
+  https://repo.cursosdedesarrollo.com/apt/mouse-master/cursos-repo.gpg
+sudo chmod 0644 /etc/apt/keyrings/cursos-repo.gpg
 ```
 
-#### Install on Ubuntu 26.04
+#### 3. Add the source for your distribution
 
-From [Releases](https://github.com/pepesan/mouse-master-linux/releases), download the asset ending
-in `_ubuntu26.04_amd64.deb`. Replace `0.1.0-3` below with the package version shown in the release:
+On **Debian 13** (`trixie`), create `/etc/apt/sources.list.d/mouse-master.sources`:
 
 ```sh
-sudo apt install ./mouse-master_0.1.0-3_ubuntu26.04_amd64.deb
+sudo tee /etc/apt/sources.list.d/mouse-master.sources >/dev/null <<'EOF'
+Types: deb
+URIs: https://repo.cursosdedesarrollo.com/apt/mouse-master
+Suites: trixie
+Components: main
+Architectures: amd64
+Signed-By: /etc/apt/keyrings/cursos-repo.gpg
+EOF
 ```
 
-Then enable the per-user service:
+On **Ubuntu 26.04** (`resolute`), create the same file with this suite:
 
 ```sh
+sudo tee /etc/apt/sources.list.d/mouse-master.sources >/dev/null <<'EOF'
+Types: deb
+URIs: https://repo.cursosdedesarrollo.com/apt/mouse-master
+Suites: resolute
+Components: main
+Architectures: amd64
+Signed-By: /etc/apt/keyrings/cursos-repo.gpg
+EOF
+```
+
+#### 4. Install Mouse Master
+
+```sh
+sudo apt update
+sudo apt install mouse-master
+systemctl --user enable --now mouse-master.service
+```
+
+For details on how the repository is created and published, see
+[the APT repository operations guide](packaging/apt/README.md#ci-publishing-and-safety-gate).
+
+#### Install a `.deb` from GitHub Releases
+
+Alternatively, download the matching asset from the
+[latest GitHub Release](https://github.com/pepesan/mouse-master-linux/releases/latest):
+
+- Debian 13: `mouse-master_VERSION_debian13_amd64.deb`
+- Ubuntu 26.04: `mouse-master_VERSION_ubuntu26.04_amd64.deb`
+
+Replace `VERSION` with the package version shown in the release and `distro` with `debian13` or
+`ubuntu26.04`, then install the downloaded package:
+
+```sh
+sudo apt install ./mouse-master_VERSION_distro_amd64.deb
 systemctl --user enable --now mouse-master.service
 ```
 

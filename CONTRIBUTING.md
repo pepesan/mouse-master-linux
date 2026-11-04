@@ -43,6 +43,61 @@ Useful while working on the app:
 - **Respect trademarks**: describe compatibility ("works with MX Master 3S") but do not use
   Logitech logos or product photos.
 
+## Contribution workflow
+
+Both `main` and `develop` are protected. Use GitFlow; do not push directly or force-push either
+branch:
+
+- Start `feature/<name>` and `bugfix/<name>` branches from `develop`; open PRs back to
+  `develop`.
+- Start `release/<version>` from `develop`; stabilize it there, then open a PR to `main`.
+- For urgent production fixes, start `hotfix/<name>` from `main` and open a PR to `main`.
+- After a release or hotfix reaches `main`, bring `main` back into `develop` with a PR so the
+  branches do not drift.
+
+Do not merge feature or ordinary bug-fix PRs directly into `main`. Release and hotfix PRs are
+the only normal routes to `main`.
+
+Before opening a PR:
+
+1. Update your branch from its correct base (`develop` for features and bug fixes; `main` for
+   hotfixes).
+2. Keep the change focused and explain its purpose in the PR description.
+3. Describe the tests you ran and complete the applicable checklist in the PR template.
+4. For device-affecting changes, include simulator coverage; report real-device results when
+   available, including model, connection type and desktop.
+
+PRs must pass the required checks before they can be merged:
+
+- `Service, CLI and protocol`
+- `Full build (Arch Linux, Qt 6)`
+- `DEB package validation`
+
+The DEB validation check is successful for documentation-only changes when the package matrix
+is correctly skipped. Package builds run when application, build or Debian packaging inputs
+change; README and documentation changes alone do not build or publish packages.
+
+### DEB package revision and release flow
+
+Do not increment `debian/revision` or edit the generated package version manually for an
+ordinary application change. Feature and bug-fix PRs to `develop` run CI but never publish.
+When package-input changes enter `main` through a release or hotfix, CI builds and tests Debian
+13 and Ubuntu 26.04 packages with the next revision, then opens or updates a pull request from
+`automation/deb-revision` to `main`. Review and merge that PR through the same protected-`main`
+process. The resulting `main` run uses the recorded revision without incrementing it again,
+then publishes the GitHub Release and signed APT repository. The release keeps the upstream
+application version and increments only the Debian revision. Merge `main` back into `develop`
+after the release PRs are complete.
+
+To request a package build without package-input changes, the repository owner can manually
+dispatch the CI workflow on `main` with `force_package` enabled. This prepares the revision PR;
+it does not bypass review or publish packages from a secondary branch. Only the qualifying
+owner-triggered `main` workflow publishes.
+
+When editing GitHub Actions steps that run inside Debian or Ubuntu containers, use POSIX
+`sh` syntax unless the step explicitly selects Bash. Container `run` steps default to `sh`;
+Bash-only conditionals such as `[[ ... ]]` can silently take the wrong branch.
+
 ## Protocol notes
 
 If you add a HID++ feature, document the byte layout in the module, cite where it came from

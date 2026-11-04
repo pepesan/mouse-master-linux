@@ -108,8 +108,10 @@ Each build increments the DEB revision stored in `debian/revision`, while keepin
 application version unchanged. The generated revision is also recorded in `debian/changelog`.
 GitHub Actions builds and tests separate Debian 13 and Ubuntu 26.04 `.deb` packages. Pushes by the
 repository owner and manual runs by the owner on `main` publish a versioned GitHub Release
-(`deb-<package-version>`) with both distro-specific assets. The workflow also persists the new
-package revision and changelog to the branch.
+(`deb-<package-version>`) with both distro-specific assets and publish the packages to the signed
+APT repository. The workflow also persists the new package revision and changelog to the branch.
+APT source stanzas and installation instructions for each distribution are in
+[the APT repository guide](packaging/apt/README.md).
 
 #### Install on Debian 13
 

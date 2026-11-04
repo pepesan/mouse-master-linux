@@ -2,7 +2,7 @@
 
 This directory is the version-controlled source for non-secret APT publisher configuration. It targets Debian 13 (`trixie`) and Ubuntu 26.04 (`resolute`), both `amd64`.
 
-**Current state:** signed APT suites `trixie` and `resolute` publish Mouse Master `0.1.0-6`. The bilingual landing page is live at `https://repo.cursosdedesarrollo.com/`. Both `InRelease` URLs return HTTP 200 without authentication; production signatures verify with fingerprint `2C38F5325DF7EE2187803C035C8B354C1929C97A`. The GitHub Actions install matrix passed on Debian 13 and Ubuntu 26.04.
+**Current state:** signed APT suites `trixie` and `resolute` publish Mouse Master `0.1.0-7`. The bilingual landing page is live at `https://repo.cursosdedesarrollo.com/`. Both `InRelease` URLs return HTTP 200 without authentication; production signatures verify with fingerprint `2C38F5325DF7EE2187803C035C8B354C1929C97A`. The GitHub Actions build, install matrix and local Ubuntu package-upgrade check passed.
 
 ## Host layout
 
